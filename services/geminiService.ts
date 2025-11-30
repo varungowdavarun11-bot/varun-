@@ -1,11 +1,9 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { AIMode } from "../types";
 
-// Initialize the client.
+// Initialize the client strictly with process.env.API_KEY as per guidelines.
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
-  // If no key and no local AI, we might have an issue, but we'll handle that in UI.
-  return new GoogleGenAI({ apiKey: apiKey || 'DUMMY_KEY' });
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 export const checkLocalCapability = async (): Promise<AIMode> => {
@@ -66,7 +64,7 @@ Assistant:`;
     }
   }
 
-  // --- CLOUD MODE (Gemini Flash) ---
+  // --- CLOUD MODE (Gemini Flash using Runanywhere SDK) ---
   const ai = getClient();
   const model = "gemini-2.5-flash";
   

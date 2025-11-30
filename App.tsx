@@ -1,24 +1,47 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AppState, Message, PDFData, AIMode } from './types';
+import { AppState, Message, PDFData, AIMode, Session } from './types';
 import FileUpload from './components/FileUpload';
 import ChatMessage from './components/ChatMessage';
 import { generateAnswer, checkLocalCapability } from './services/geminiService';
-import { Send, ArrowLeft, BookOpen, AlertTriangle, Cloud, Laptop, Wifi, WifiOff } from 'lucide-react';
+import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History } from 'lucide-react';
 import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.UPLOAD);
-  const [pdfData, setPdfData] = useState<PDFData | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  
+  // State for multiple sessions
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [aiMode, setAiMode] = useState<AIMode>('unavailable');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check capabilities and network on mount
+  // Derived state for the current active session
+  const currentSession = sessions.find(s => s.id === currentSessionId);
+  const messages = currentSession?.messages || [];
+  const pdfData = currentSession?.pdfData || null;
+
+  // Load sessions from storage on mount
   useEffect(() => {
+    const savedSessions = localStorage.getItem('read_pdf_sessions');
+    if (savedSessions) {
+      try {
+        const parsed: Session[] = JSON.parse(savedSessions);
+        if (parsed.length > 0) {
+          setSessions(parsed);
+          setCurrentSessionId(parsed[0].id);
+          setAppState(AppState.CHAT);
+        }
+      } catch (e) {
+        console.error("Failed to restore sessions", e);
+      }
+    }
+
     checkLocalCapability().then(setAiMode);
 
     const handleOnline = () => setIsOnline(true);
@@ -33,31 +56,62 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Persist sessions whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('read_pdf_sessions', JSON.stringify(sessions));
+    } catch (e) {
+      console.warn("Session storage limit reached or error", e);
+    }
+  }, [sessions]);
+
   // Auto-scroll to bottom of chat
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (appState === AppState.CHAT) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, appState]);
+
+  // Helper to update messages for the active session
+  const updateCurrentSessionMessages = (newMessagesOrUpdater: Message[] | ((prev: Message[]) => Message[])) => {
+    setSessions(prevSessions => {
+      return prevSessions.map(session => {
+        if (session.id === currentSessionId) {
+          const updatedMessages = typeof newMessagesOrUpdater === 'function'
+            ? newMessagesOrUpdater(session.messages)
+            : newMessagesOrUpdater;
+          return { ...session, messages: updatedMessages };
+        }
+        return session;
+      });
+    });
+  };
 
   const handleUploadComplete = (data: PDFData) => {
-    setPdfData(data);
-    setAppState(AppState.CHAT);
-    // Add initial greeting
-    setMessages([
-      {
+    const newSessionId = Date.now().toString();
+    const newSession: Session = {
+      id: newSessionId,
+      pdfData: data,
+      messages: [{
         id: 'init-1',
         role: 'model',
         content: `I've analyzed **${data.name}** (${data.pageCount} pages). What would you like to know about it?`,
         timestamp: Date.now()
-      }
-    ]);
+      }],
+      createdAt: Date.now()
+    };
+
+    setSessions(prev => [newSession, ...prev]);
+    setCurrentSessionId(newSessionId);
+    setAppState(AppState.CHAT);
+    setMobileMenuOpen(false);
   };
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || !pdfData || isLoading) return;
 
-    // Check if we can actually generate an answer
     if (!isOnline && aiMode !== 'local') {
-      setMessages(prev => [...prev, {
+      updateCurrentSessionMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'model',
         content: "I'm offline and don't have access to the On-Device AI. Please check your internet connection.",
@@ -73,18 +127,16 @@ const App: React.FC = () => {
       timestamp: Date.now()
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    updateCurrentSessionMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsLoading(true);
 
     try {
-      // Prepare history for API
       const historyForApi = messages.map(m => ({
           role: m.role,
           parts: [{ text: m.content }]
       }));
 
-      // If we are offline but have local mode, force local mode usage
       const modeToUse = (!isOnline && aiMode === 'local') ? 'local' : aiMode;
 
       const answer = await generateAnswer(pdfData.text, userMsg.content, historyForApi, modeToUse);
@@ -96,9 +148,9 @@ const App: React.FC = () => {
         timestamp: Date.now()
       };
 
-      setMessages(prev => [...prev, botMsg]);
+      updateCurrentSessionMessages(prev => [...prev, botMsg]);
     } catch (error) {
-      setMessages(prev => [...prev, {
+      updateCurrentSessionMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'model',
         content: "I'm sorry, I encountered an error while trying to answer your question. Please check your connection or try again.",
@@ -117,28 +169,66 @@ const App: React.FC = () => {
   };
 
   const handleAudioStart = (id: string) => {
-    setMessages(prev => prev.map(m => ({
+    updateCurrentSessionMessages(prev => prev.map(m => ({
       ...m,
       isAudioPlaying: m.id === id
     })));
   };
 
   const handleAudioEnd = (id: string) => {
-    setMessages(prev => prev.map(m => ({
+    updateCurrentSessionMessages(prev => prev.map(m => ({
       ...m,
       isAudioPlaying: false
     })));
   };
 
-  const handleReset = () => {
-    audioService.stop();
-    setPdfData(null);
-    setMessages([]);
+  // Sidebar Actions
+  const handleNewPDF = () => {
     setAppState(AppState.UPLOAD);
+    audioService.stop();
+    setMobileMenuOpen(false);
   };
 
-  // Block only if BOTH cloud and local are unavailable AND we are online (checking capabilities failed).
-  // If we are offline, we might just be unable to check cloud, but if aiMode is 'unavailable' and no API Key, we can't do anything.
+  const handleSwitchSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    setAppState(AppState.CHAT);
+    audioService.stop();
+    setMobileMenuOpen(false);
+  };
+
+  const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    audioService.stop();
+    
+    setSessions(prev => {
+      const newSessions = prev.filter(s => s.id !== sessionId);
+      if (sessionId === currentSessionId) {
+        // If we deleted the active session, switch to the next available one or go to upload
+        if (newSessions.length > 0) {
+          setCurrentSessionId(newSessions[0].id);
+        } else {
+          setCurrentSessionId(null);
+          setAppState(AppState.UPLOAD);
+        }
+      }
+      return newSessions;
+    });
+  };
+
+  const handleClearCurrentChat = () => {
+    if (!currentSessionId || !pdfData) return;
+    
+    audioService.stop();
+    updateCurrentSessionMessages([{
+      id: `reset-${Date.now()}`,
+      role: 'model',
+      content: `Conversation cleared. I'm ready for new questions about **${pdfData.name}**.`,
+      timestamp: Date.now()
+    }]);
+    setMobileMenuOpen(false);
+  };
+
+  // Error State
   if (aiMode === 'unavailable' && !process.env.API_KEY) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-red-50 p-4">
@@ -149,9 +239,6 @@ const App: React.FC = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-2">Configuration Missing</h2>
             <p className="text-gray-600 mb-4">
               Neither an API Key nor a Local AI model was found. 
-              <br/><br/>
-              To run offline, enable <b>Chrome Built-in AI</b>. 
-              To run online, set the <code>API_KEY</code> environment variable.
             </p>
         </div>
       </div>
@@ -159,79 +246,113 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
+    <div className="flex flex-col md:flex-row h-screen bg-slate-50 overflow-hidden">
       
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 h-16 flex items-center px-6 justify-between flex-shrink-0 z-10 transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          {appState === AppState.CHAT && (
-            <button 
-              onClick={handleReset}
-              className="p-2 -ml-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
-              title="Back to upload"
-            >
-              <ArrowLeft size={20} />
-            </button>
-          )}
-          <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-lg ${isOnline ? 'bg-indigo-600' : 'bg-slate-600'} text-white`}>
-              <BookOpen size={18} />
-            </div>
-            <span className="font-semibold text-slate-800 tracking-tight">Read PDF</span>
-          </div>
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white flex-shrink-0">
+        <div className="flex items-center gap-2">
+           <BookOpen size={20} />
+           <span className="font-bold">Read PDF</span>
         </div>
-        
-        <div className="flex items-center gap-3">
-           {/* Connection/Mode Indicator */}
-           <div className={`
-             flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors duration-300
-             ${!isOnline 
-               ? (aiMode === 'local' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200')
-               : (aiMode === 'local' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200')
-             }
-           `}>
-             {!isOnline ? (
-               aiMode === 'local' ? (
-                 <>
-                   <WifiOff size={12} />
-                   <span className="hidden sm:inline">Offline • On-Device Ready</span>
-                   <span className="sm:hidden">Offline</span>
-                 </>
-               ) : (
-                 <>
-                   <WifiOff size={12} />
-                   <span>Offline</span>
-                 </>
-               )
-             ) : (
-               aiMode === 'local' ? (
-                 <>
-                   <Laptop size={12} />
-                   <span className="hidden sm:inline">On-Device AI</span>
-                   <span className="sm:hidden">Local</span>
-                 </>
-               ) : (
-                 <>
-                   <Cloud size={12} />
-                   <span className="hidden sm:inline">Cloud AI</span>
-                   <span className="sm:hidden">Cloud</span>
-                 </>
-               )
-             )}
-           </div>
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          {mobileMenuOpen ? <X /> : <Menu />}
+        </button>
+      </div>
 
-           {appState === AppState.CHAT && pdfData && (
-            <div className="hidden md:flex items-center gap-2 text-sm text-slate-500 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">
-              <span className="font-medium text-slate-700 truncate max-w-[200px]">{pdfData.name}</span>
-              <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-              <span>{pdfData.pageCount} pages</span>
+      {/* Sidebar (Desktop + Mobile Menu) */}
+      <aside className={`
+        fixed inset-0 z-50 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out
+        md:relative md:transform-none md:translate-x-0 md:w-64 md:flex md:flex-col
+        ${mobileMenuOpen ? 'translate-x-0 pt-16' : '-translate-x-full md:pt-0'}
+      `}>
+        {/* Desktop Logo */}
+        <div className="hidden md:flex items-center gap-3 p-6 border-b border-slate-800 text-white">
+          <div className="p-1.5 bg-indigo-600 rounded-lg">
+             <BookOpen size={20} />
+          </div>
+          <span className="font-bold text-lg tracking-tight">Read PDF</span>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto flex flex-col">
+          
+          <button 
+            onClick={handleNewPDF}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium flex-shrink-0
+              ${appState === AppState.UPLOAD ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}
+            `}
+          >
+            <Plus size={20} />
+            <span>New PDF</span>
+          </button>
+
+          {currentSession && (
+             <button 
+               onClick={handleClearCurrentChat}
+               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-all duration-200 font-medium flex-shrink-0"
+             >
+               <Trash2 size={20} />
+               <span>Clear Chat</span>
+             </button>
+          )}
+
+          <div className="pt-6 pb-2 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 flex-shrink-0 flex items-center gap-2">
+            <History size={12} />
+            History
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-1">
+            {sessions.length === 0 ? (
+              <div className="px-4 text-sm text-slate-600 italic">No history yet</div>
+            ) : (
+              sessions.map(session => (
+                <div 
+                  key={session.id} 
+                  className={`group flex items-center rounded-xl transition-colors duration-200
+                    ${session.id === currentSessionId && appState === AppState.CHAT ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}
+                  `}
+                >
+                  <button 
+                    onClick={() => handleSwitchSession(session.id)}
+                    className="flex-1 flex items-center gap-3 px-4 py-3 min-w-0"
+                  >
+                    <MessageSquare size={18} className="flex-shrink-0" />
+                    <div className="text-left overflow-hidden min-w-0">
+                      <span className="block truncate text-sm font-medium">{session.pdfData.name}</span>
+                      <span className="block text-xs opacity-60 truncate">
+                        {new Date(session.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </button>
+                  <button 
+                    onClick={(e) => handleDeleteSession(e, session.id)}
+                    className="p-2 mr-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-all"
+                    title="Delete conversation"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </nav>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-slate-800 flex-shrink-0">
+          <div className="flex items-center gap-3 text-xs text-slate-500 px-2">
+            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+            <span>{isOnline ? 'Online' : 'Offline'} Mode</span>
+          </div>
+          {aiMode === 'local' && (
+            <div className="mt-2 text-xs text-indigo-400 bg-indigo-900/30 px-3 py-1.5 rounded-md border border-indigo-900/50">
+              Running Local AI
             </div>
           )}
         </div>
-      </header>
+      </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden relative">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
         {!isOnline && appState === AppState.UPLOAD && aiMode !== 'local' && (
           <div className="absolute top-0 left-0 right-0 bg-red-500 text-white text-xs font-medium py-1 text-center z-20">
             No internet connection. Cloud features unavailable.
@@ -239,68 +360,79 @@ const App: React.FC = () => {
         )}
 
         {appState === AppState.UPLOAD ? (
-          <div className="h-full flex items-center justify-center">
-            <FileUpload onUploadComplete={handleUploadComplete} />
+          <div className="h-full flex items-center justify-center bg-slate-50 p-4">
+             <div className="w-full max-w-xl animate-in fade-in zoom-in-95 duration-300">
+                <FileUpload onUploadComplete={handleUploadComplete} />
+             </div>
           </div>
         ) : (
-          <div className="h-full flex flex-col max-w-3xl mx-auto w-full bg-white shadow-xl shadow-slate-200/50 md:border-x border-slate-200">
-            
+          <div className="h-full flex flex-col w-full bg-white relative">
+            {/* Minimal Header for Chat */}
+            <header className="flex-shrink-0 h-14 border-b border-slate-100 flex items-center justify-between px-6 bg-white z-10">
+               <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                    <BookOpen size={16} />
+                  </div>
+                  <div className="flex flex-col overflow-hidden">
+                    <h2 className="text-sm font-semibold text-slate-800 truncate max-w-[200px] md:max-w-md">
+                      {pdfData?.name || 'Document'}
+                    </h2>
+                    <span className="text-xs text-slate-500">{pdfData?.pageCount} pages</span>
+                  </div>
+               </div>
+            </header>
+
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-hide">
-               {messages.map((msg) => (
-                 <ChatMessage 
-                    key={msg.id} 
-                    message={msg} 
-                    onAudioStart={handleAudioStart}
-                    onAudioEnd={handleAudioEnd}
-                 />
-               ))}
-               {isLoading && (
-                 <div className="flex justify-start mb-6 animate-pulse">
-                    <div className="bg-white border border-slate-100 px-5 py-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
-                      </div>
-                      <span className="text-xs text-slate-400 font-medium">
-                        {(aiMode === 'local' || !isOnline) ? 'Processing on device...' : 'Thinking...'}
-                      </span>
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-hide bg-slate-50/50">
+               <div className="max-w-3xl mx-auto w-full">
+                  {messages.map((msg) => (
+                    <ChatMessage 
+                        key={msg.id} 
+                        message={msg} 
+                        onAudioStart={handleAudioStart}
+                        onAudioEnd={handleAudioEnd}
+                    />
+                  ))}
+                  {isLoading && (
+                    <div className="flex justify-start mb-6 animate-pulse">
+                        <div className="bg-white border border-slate-100 px-5 py-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
+                          </div>
+                          <span className="text-xs text-slate-400 font-medium">
+                            Thinking...
+                          </span>
+                        </div>
                     </div>
-                 </div>
-               )}
-               <div ref={messagesEndRef} />
+                  )}
+                  <div ref={messagesEndRef} />
+               </div>
             </div>
 
             {/* Input Area */}
             <div className="p-4 border-t border-slate-100 bg-white">
-              <div className="relative flex items-center gap-2">
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    !isOnline 
-                      ? (aiMode === 'local' ? "Ask question (Offline Mode)..." : "Waiting for connection...") 
-                      : (aiMode === 'local' ? "Ask question (Local Mode)..." : "Ask a question...")
-                  }
-                  disabled={isLoading || (!isOnline && aiMode !== 'local')}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400 disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!inputText.trim() || isLoading || (!isOnline && aiMode !== 'local')}
-                  className="absolute right-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors shadow-sm"
-                >
-                  <Send size={18} />
-                </button>
+              <div className="max-w-3xl mx-auto w-full">
+                <div className="relative flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask a question about the document..."
+                    disabled={isLoading || (!isOnline && aiMode !== 'local')}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!inputText.trim() || isLoading}
+                    className="absolute right-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
               </div>
-              <p className="text-center text-xs text-slate-400 mt-3">
-                {(!isOnline || aiMode === 'local')
-                  ? 'Running privately on your device. Answers are generated offline.' 
-                  : 'AI answers are generated based on document content. Verify important details.'}
-              </p>
             </div>
           </div>
         )}

@@ -12,6 +12,13 @@ export interface PDFData {
   pageCount: number;
 }
 
+export interface Session {
+  id: string;
+  pdfData: PDFData;
+  messages: Message[];
+  createdAt: number;
+}
+
 export enum AppState {
   UPLOAD = 'UPLOAD',
   CHAT = 'CHAT',

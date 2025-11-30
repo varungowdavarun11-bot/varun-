@@ -177,7 +177,7 @@ const App: React.FC = () => {
             <div className={`p-1.5 rounded-lg ${isOnline ? 'bg-indigo-600' : 'bg-slate-600'} text-white`}>
               <BookOpen size={18} />
             </div>
-            <span className="font-semibold text-slate-800 tracking-tight">StudyMate AI</span>
+            <span className="font-semibold text-slate-800 tracking-tight">Read PDF</span>
           </div>
         </div>
         

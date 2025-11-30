@@ -62,7 +62,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
     <div className="w-full max-w-xl mx-auto px-6">
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-slate-900 mb-4 tracking-tight">
-          StudyMate AI
+          Read PDF
         </h1>
         <p className="text-lg text-slate-600">
           Upload your course material, ask questions, and listen to the answers.

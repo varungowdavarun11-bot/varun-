@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AppState, Message, PDFData, AIMode, Session } from './types';
+import { AppState, Message, DocumentData, AIMode, Session } from './types';
 import FileUpload from './components/FileUpload';
 import ChatMessage from './components/ChatMessage';
 import { generateAnswer, checkLocalCapability } from './services/geminiService';
-import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History } from 'lucide-react';
+import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History, FileSpreadsheet, File, Image as ImageIcon } from 'lucide-react';
 import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
@@ -24,7 +24,7 @@ const App: React.FC = () => {
   // Derived state for the current active session
   const currentSession = sessions.find(s => s.id === currentSessionId);
   const messages = currentSession?.messages || [];
-  const pdfData = currentSession?.pdfData || null;
+  const documentData = currentSession?.documentData || null;
 
   // Load sessions from storage on mount
   useEffect(() => {
@@ -87,15 +87,22 @@ const App: React.FC = () => {
     });
   };
 
-  const handleUploadComplete = (data: PDFData) => {
+  const handleUploadComplete = (data: DocumentData) => {
     const newSessionId = Date.now().toString();
+    
+    // Determine unit label
+    let unitLabel = 'pages';
+    if (data.fileType === 'excel') unitLabel = 'sheets';
+    if (data.fileType === 'powerpoint') unitLabel = 'slides';
+    if (data.fileType === 'image') unitLabel = 'image';
+
     const newSession: Session = {
       id: newSessionId,
-      pdfData: data,
+      documentData: data,
       messages: [{
         id: 'init-1',
         role: 'model',
-        content: `I've analyzed **${data.name}** (${data.pageCount} pages). What would you like to know about it?`,
+        content: `I've analyzed **${data.name}** (${data.pageCount} ${unitLabel}). What would you like to know about it?`,
         timestamp: Date.now()
       }],
       createdAt: Date.now()
@@ -108,7 +115,7 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !pdfData || isLoading) return;
+    if (!inputText.trim() || !documentData || isLoading) return;
 
     if (!isOnline && aiMode !== 'local') {
       updateCurrentSessionMessages(prev => [...prev, {
@@ -139,7 +146,7 @@ const App: React.FC = () => {
 
       const modeToUse = (!isOnline && aiMode === 'local') ? 'local' : aiMode;
 
-      const answer = await generateAnswer(pdfData.text, userMsg.content, historyForApi, modeToUse);
+      const answer = await generateAnswer(documentData.text, userMsg.content, historyForApi, modeToUse);
       
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -183,7 +190,7 @@ const App: React.FC = () => {
   };
 
   // Sidebar Actions
-  const handleNewPDF = () => {
+  const handleNewFile = () => {
     setAppState(AppState.UPLOAD);
     audioService.stop();
     setMobileMenuOpen(false);
@@ -203,7 +210,6 @@ const App: React.FC = () => {
     setSessions(prev => {
       const newSessions = prev.filter(s => s.id !== sessionId);
       if (sessionId === currentSessionId) {
-        // If we deleted the active session, switch to the next available one or go to upload
         if (newSessions.length > 0) {
           setCurrentSessionId(newSessions[0].id);
         } else {
@@ -216,16 +222,25 @@ const App: React.FC = () => {
   };
 
   const handleClearCurrentChat = () => {
-    if (!currentSessionId || !pdfData) return;
+    if (!currentSessionId || !documentData) return;
     
     audioService.stop();
     updateCurrentSessionMessages([{
       id: `reset-${Date.now()}`,
       role: 'model',
-      content: `Conversation cleared. I'm ready for new questions about **${pdfData.name}**.`,
+      content: `Conversation cleared. I'm ready for new questions about **${documentData.name}**.`,
       timestamp: Date.now()
     }]);
     setMobileMenuOpen(false);
+  };
+
+  const getFileIcon = (type?: string) => {
+    switch(type) {
+      case 'excel': return <FileSpreadsheet size={16} />;
+      case 'powerpoint': return <File size={16} />;
+      case 'image': return <ImageIcon size={16} />;
+      default: return <BookOpen size={16} />;
+    }
   };
 
   // Error State
@@ -252,7 +267,7 @@ const App: React.FC = () => {
       <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white flex-shrink-0">
         <div className="flex items-center gap-2">
            <BookOpen size={20} />
-           <span className="font-bold">Read PDF</span>
+           <span className="font-bold">Read Anything</span>
         </div>
         <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           {mobileMenuOpen ? <X /> : <Menu />}
@@ -270,20 +285,20 @@ const App: React.FC = () => {
           <div className="p-1.5 bg-indigo-600 rounded-lg">
              <BookOpen size={20} />
           </div>
-          <span className="font-bold text-lg tracking-tight">Read PDF</span>
+          <span className="font-bold text-lg tracking-tight">Read Anything</span>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto flex flex-col">
           
           <button 
-            onClick={handleNewPDF}
+            onClick={handleNewFile}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium flex-shrink-0
               ${appState === AppState.UPLOAD ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}
             `}
           >
             <Plus size={20} />
-            <span>New PDF</span>
+            <span>New File</span>
           </button>
 
           {currentSession && (
@@ -316,9 +331,11 @@ const App: React.FC = () => {
                     onClick={() => handleSwitchSession(session.id)}
                     className="flex-1 flex items-center gap-3 px-4 py-3 min-w-0"
                   >
-                    <MessageSquare size={18} className="flex-shrink-0" />
+                    <span className="flex-shrink-0 opacity-70">
+                        {getFileIcon(session.documentData.fileType)}
+                    </span>
                     <div className="text-left overflow-hidden min-w-0">
-                      <span className="block truncate text-sm font-medium">{session.pdfData.name}</span>
+                      <span className="block truncate text-sm font-medium">{session.documentData.name}</span>
                       <span className="block text-xs opacity-60 truncate">
                         {new Date(session.createdAt).toLocaleDateString()}
                       </span>
@@ -371,13 +388,13 @@ const App: React.FC = () => {
             <header className="flex-shrink-0 h-14 border-b border-slate-100 flex items-center justify-between px-6 bg-white z-10">
                <div className="flex items-center gap-2 overflow-hidden">
                   <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
-                    <BookOpen size={16} />
+                    {getFileIcon(documentData?.fileType)}
                   </div>
                   <div className="flex flex-col overflow-hidden">
                     <h2 className="text-sm font-semibold text-slate-800 truncate max-w-[200px] md:max-w-md">
-                      {pdfData?.name || 'Document'}
+                      {documentData?.name || 'Document'}
                     </h2>
-                    <span className="text-xs text-slate-500">{pdfData?.pageCount} pages</span>
+                    <span className="text-xs text-slate-500">{documentData?.pageCount} pages/slides</span>
                   </div>
                </div>
             </header>

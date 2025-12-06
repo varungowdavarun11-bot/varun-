@@ -6,15 +6,18 @@ export interface Message {
   isAudioPlaying?: boolean;
 }
 
-export interface PDFData {
+export type FileType = 'pdf' | 'image' | 'excel' | 'powerpoint' | 'text';
+
+export interface DocumentData {
   name: string;
   text: string;
-  pageCount: number;
+  pageCount: number; // Acts as "units" (pages, slides, sheets)
+  fileType: FileType;
 }
 
 export interface Session {
   id: string;
-  pdfData: PDFData;
+  documentData: DocumentData;
   messages: Message[];
   createdAt: number;
 }
@@ -29,6 +32,9 @@ export type AIMode = 'cloud' | 'local' | 'unavailable';
 declare global {
   interface Window {
     pdfjsLib: any;
+    XLSX: any;
+    JSZip: any;
+    Tesseract: any;
     ai?: {
       languageModel: {
         capabilities: () => Promise<{ available: 'readily' | 'after-download' | 'no'; defaultTopK?: number; maxTopK?: number; defaultTemperature?: number }>;

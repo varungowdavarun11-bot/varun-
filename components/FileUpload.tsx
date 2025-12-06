@@ -1,16 +1,17 @@
 import React, { useRef, useState } from 'react';
-import { Upload, FileText, Loader2, AlertCircle } from 'lucide-react';
-import { extractTextFromPDF } from '../services/pdfService';
-import { PDFData } from '../types';
+import { Upload, FileText, Loader2, AlertCircle, Image, FileSpreadsheet, File } from 'lucide-react';
+import { extractTextFromDocument } from '../services/pdfService'; // Using the updated service
+import { DocumentData } from '../types';
 
 interface FileUploadProps {
-  onUploadComplete: (data: PDFData) => void;
+  onUploadComplete: (data: DocumentData) => void;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState('Analyzing document...');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -24,22 +25,27 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
   };
 
   const processFile = async (file: File) => {
-    if (file.type !== 'application/pdf') {
-      setError('Please upload a valid PDF file.');
-      return;
-    }
-
     setError(null);
     setIsProcessing(true);
+    
+    // Custom status messages based on file type
+    if (file.type.startsWith('image/')) {
+      setStatusMessage('Reading text from image (OCR)...');
+    } else if (file.name.endsWith('.pptx')) {
+      setStatusMessage('Extracting slides...');
+    } else {
+      setStatusMessage('Analyzing document...');
+    }
 
     try {
-      const data = await extractTextFromPDF(file);
+      const data = await extractTextFromDocument(file);
       onUploadComplete(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Failed to process PDF. Please try again.');
+      setError(err.message || 'Failed to process file. Please try again.');
     } finally {
       setIsProcessing(false);
+      setStatusMessage('Analyzing document...');
     }
   };
 
@@ -62,10 +68,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
     <div className="w-full max-w-xl mx-auto px-6">
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-slate-900 mb-4 tracking-tight">
-          Read PDF
+          Read Anything
         </h1>
         <p className="text-lg text-slate-600">
-          Upload your course material, ask questions, and listen to the answers.
+          Upload PDFs, Images, Excel, or PowerPoint files to ask questions and listen to answers.
         </p>
       </div>
 
@@ -88,35 +94,45 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           type="file"
           ref={fileInputRef}
           className="hidden"
-          accept=".pdf"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.pptx,.ppt,.txt"
           onChange={handleFileSelect}
         />
 
         {isProcessing ? (
           <div className="flex flex-col items-center animate-pulse">
             <Loader2 className="w-16 h-16 text-indigo-600 animate-spin mb-4" />
-            <p className="text-indigo-600 font-medium text-lg">Analyzing document...</p>
-            <p className="text-slate-400 text-sm mt-2">This utilizes local browser capabilities</p>
+            <p className="text-indigo-600 font-medium text-lg">{statusMessage}</p>
+            <p className="text-slate-400 text-sm mt-2">Processing on your device...</p>
           </div>
         ) : (
           <>
             <div className={`
               w-20 h-20 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6
-              group-hover:scale-110 transition-transform duration-300
+              group-hover:scale-110 transition-transform duration-300 relative
             `}>
               <Upload className="w-10 h-10 text-indigo-600" />
             </div>
             
             <h3 className="text-xl font-semibold text-slate-800 mb-2">
-              Drop your PDF here
+              Drop your file here
             </h3>
             <p className="text-slate-500 text-center mb-6 max-w-xs">
-              or click to browse from your device
+              PDF, Images, Excel, PowerPoint, Text
             </p>
 
-            <div className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg shadow-sm">
-              <FileText className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-medium text-slate-500">Supports PDF up to 50MB</span>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
+                <FileText size={12} /> PDF
+              </span>
+              <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
+                <Image size={12} /> IMG
+              </span>
+              <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
+                <FileSpreadsheet size={12} /> XLS
+              </span>
+              <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
+                <File size={12} /> PPT
+              </span>
             </div>
           </>
         )}

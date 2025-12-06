@@ -3,7 +3,7 @@ import { AppState, Message, DocumentData, AIMode, Session } from './types';
 import FileUpload from './components/FileUpload';
 import ChatMessage from './components/ChatMessage';
 import { generateAnswer, checkLocalCapability } from './services/geminiService';
-import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History, FileSpreadsheet, File, Image as ImageIcon } from 'lucide-react';
+import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon } from 'lucide-react';
 import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
@@ -237,7 +237,7 @@ const App: React.FC = () => {
   const getFileIcon = (type?: string) => {
     switch(type) {
       case 'excel': return <FileSpreadsheet size={16} />;
-      case 'powerpoint': return <File size={16} />;
+      case 'powerpoint': return <FileIcon size={16} />;
       case 'image': return <ImageIcon size={16} />;
       default: return <BookOpen size={16} />;
     }

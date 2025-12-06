@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Upload, FileText, Loader2, AlertCircle, Image, FileSpreadsheet, File } from 'lucide-react';
-import { extractTextFromDocument } from '../services/pdfService'; // Using the updated service
+import { Upload, FileText, Loader2, AlertCircle, Image as ImageIcon, FileSpreadsheet, File as FileIcon } from 'lucide-react';
+import { extractTextFromDocument } from '../services/pdfService'; 
 import { DocumentData } from '../types';
 
 interface FileUploadProps {
@@ -125,13 +125,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
                 <FileText size={12} /> PDF
               </span>
               <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
-                <Image size={12} /> IMG
+                <ImageIcon size={12} /> IMG
               </span>
               <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
                 <FileSpreadsheet size={12} /> XLS
               </span>
               <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
-                <File size={12} /> PPT
+                <FileIcon size={12} /> PPT
               </span>
             </div>
           </>

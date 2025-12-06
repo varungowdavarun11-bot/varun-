@@ -6,6 +6,7 @@ declare global {
     XLSX: any;
     JSZip: any;
     Tesseract: any;
+    mammoth: any;
   }
 }
 
@@ -18,6 +19,7 @@ const getFileType = (file: File): FileType => {
   if (type.startsWith('image/') || name.match(/\.(jpg|jpeg|png|bmp|webp)$/)) return 'image';
   if (name.endsWith('.xlsx') || name.endsWith('.xls') || type.includes('spreadsheet')) return 'excel';
   if (name.endsWith('.pptx') || name.endsWith('.ppt') || type.includes('presentation')) return 'powerpoint';
+  if (name.endsWith('.docx') || type.includes('wordprocessing')) return 'word';
   if (type === 'text/plain' || name.endsWith('.txt')) return 'text';
   
   // Default fallback
@@ -94,6 +96,16 @@ const extractFromPPTX = async (file: File): Promise<{ text: string; pages: numbe
   return { text: fullText, pages: count };
 };
 
+const extractFromDocx = async (file: File): Promise<{ text: string; pages: number }> => {
+  if (!window.mammoth) throw new Error("Word Library not loaded");
+  
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await window.mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+  
+  // Word docs don't easily map to "pages" without rendering, so we default to 1 unit.
+  return { text: result.value, pages: 1 };
+};
+
 const extractFromImage = async (file: File): Promise<{ text: string; pages: number }> => {
   if (!window.Tesseract) throw new Error("OCR Library not loaded");
   
@@ -126,6 +138,9 @@ export const extractTextFromDocument = async (file: File): Promise<DocumentData>
       break;
     case 'powerpoint':
       result = await extractFromPPTX(file);
+      break;
+    case 'word':
+      result = await extractFromDocx(file);
       break;
     case 'image':
       result = await extractFromImage(file);

@@ -33,6 +33,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
       setStatusMessage('Reading text from image (OCR)...');
     } else if (file.name.endsWith('.pptx')) {
       setStatusMessage('Extracting slides...');
+    } else if (file.name.endsWith('.docx')) {
+      setStatusMessage('Reading Word document...');
     } else {
       setStatusMessage('Analyzing document...');
     }
@@ -71,7 +73,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           Read Anything
         </h1>
         <p className="text-lg text-slate-600">
-          Upload PDFs, Images, Excel, or PowerPoint files to ask questions and listen to answers.
+          Upload PDF, Word, Excel, PowerPoint, or Images to ask questions and listen to answers.
         </p>
       </div>
 
@@ -94,7 +96,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
           type="file"
           ref={fileInputRef}
           className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.pptx,.ppt,.txt"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.pptx,.ppt,.txt,.docx"
           onChange={handleFileSelect}
         />
 
@@ -117,12 +119,15 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
               Drop your file here
             </h3>
             <p className="text-slate-500 text-center mb-6 max-w-xs">
-              PDF, Images, Excel, PowerPoint, Text
+              PDF, Word, Excel, PowerPoint, Images
             </p>
 
             <div className="flex flex-wrap gap-2 justify-center">
               <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
                 <FileText size={12} /> PDF
+              </span>
+              <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
+                <FileText size={12} /> DOCX
               </span>
               <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-medium flex items-center gap-1">
                 <ImageIcon size={12} /> IMG

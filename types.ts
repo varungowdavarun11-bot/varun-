@@ -6,7 +6,7 @@ export interface Message {
   isAudioPlaying?: boolean;
 }
 
-export type FileType = 'pdf' | 'image' | 'excel' | 'powerpoint' | 'text';
+export type FileType = 'pdf' | 'image' | 'excel' | 'powerpoint' | 'text' | 'word';
 
 export interface DocumentData {
   name: string;
@@ -35,6 +35,7 @@ declare global {
     XLSX: any;
     JSZip: any;
     Tesseract: any;
+    mammoth: any;
     ai?: {
       languageModel: {
         capabilities: () => Promise<{ available: 'readily' | 'after-download' | 'no'; defaultTopK?: number; maxTopK?: number; defaultTemperature?: number }>;

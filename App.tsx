@@ -3,7 +3,7 @@ import { AppState, Message, DocumentData, AIMode, Session } from './types';
 import FileUpload from './components/FileUpload';
 import ChatMessage from './components/ChatMessage';
 import { generateAnswer, checkLocalCapability } from './services/geminiService';
-import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon } from 'lucide-react';
+import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon, FileText } from 'lucide-react';
 import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
@@ -95,6 +95,7 @@ const App: React.FC = () => {
     if (data.fileType === 'excel') unitLabel = 'sheets';
     if (data.fileType === 'powerpoint') unitLabel = 'slides';
     if (data.fileType === 'image') unitLabel = 'image';
+    if (data.fileType === 'word') unitLabel = 'document';
 
     const newSession: Session = {
       id: newSessionId,
@@ -239,6 +240,7 @@ const App: React.FC = () => {
       case 'excel': return <FileSpreadsheet size={16} />;
       case 'powerpoint': return <FileIcon size={16} />;
       case 'image': return <ImageIcon size={16} />;
+      case 'word': return <FileText size={16} />;
       default: return <BookOpen size={16} />;
     }
   };
@@ -394,7 +396,7 @@ const App: React.FC = () => {
                     <h2 className="text-sm font-semibold text-slate-800 truncate max-w-[200px] md:max-w-md">
                       {documentData?.name || 'Document'}
                     </h2>
-                    <span className="text-xs text-slate-500">{documentData?.pageCount} pages/slides</span>
+                    <span className="text-xs text-slate-500">{documentData?.pageCount} {documentData?.fileType === 'excel' ? 'sheets' : documentData?.fileType === 'powerpoint' ? 'slides' : documentData?.fileType === 'word' ? 'document' : 'pages'}</span>
                   </div>
                </div>
             </header>

@@ -1,11 +1,11 @@
 import { DocumentData, FileType } from '../types';
+import { createWorker } from 'tesseract.js';
 
 declare global {
   interface Window {
     pdfjsLib: any;
     XLSX: any;
     JSZip: any;
-    Tesseract: any;
     mammoth: any;
   }
 }
@@ -107,13 +107,11 @@ const extractFromDocx = async (file: File): Promise<{ text: string; pages: numbe
 };
 
 const extractFromImage = async (file: File): Promise<{ text: string; pages: number }> => {
-  if (!window.Tesseract) throw new Error("OCR Library not loaded");
-  
-  const result = await window.Tesseract.recognize(file, 'eng', {
-    // logger: m => console.log(m) // Optional: for debugging progress
-  });
-
-  return { text: result.data.text, pages: 1 };
+  // Use tesseract.js worker
+  const worker = await createWorker('eng');
+  const ret = await worker.recognize(file);
+  await worker.terminate();
+  return { text: ret.data.text, pages: 1 };
 };
 
 const extractFromText = async (file: File): Promise<{ text: string; pages: number }> => {

@@ -22,7 +22,6 @@ const getFileType = (file: File): FileType => {
   if (name.endsWith('.docx') || type.includes('wordprocessing')) return 'word';
   if (type === 'text/plain' || name.endsWith('.txt')) return 'text';
   
-  // Default fallback
   return 'text';
 };
 
@@ -36,8 +35,13 @@ const extractFromPDF = async (file: File): Promise<{ text: string; pages: number
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item: any) => item.str).join(' ');
-    fullText += `[Page ${i}]\n${pageText}\n\n`;
+    
+    // Improved PDF extraction: Preserves lines to help AI understand paragraphs/headings
+    const pageText = textContent.items.map((item: any) => {
+        return item.str + (item.hasEOL ? '\n' : ' ');
+    }).join('');
+
+    fullText += `--- Page ${i} ---\n${pageText}\n\n`;
   }
   
   return { text: fullText, pages: pdf.numPages };
@@ -52,8 +56,9 @@ const extractFromExcel = async (file: File): Promise<{ text: string; pages: numb
   
   workbook.SheetNames.forEach((sheetName: string) => {
     const sheet = workbook.Sheets[sheetName];
-    const sheetText = window.XLSX.utils.sheet_to_txt(sheet);
-    fullText += `[Sheet: ${sheetName}]\n${sheetText}\n\n`;
+    // Use CSV format so the AI understands rows and columns better
+    const sheetCsv = window.XLSX.utils.sheet_to_csv(sheet);
+    fullText += `--- Sheet: ${sheetName} ---\n${sheetCsv}\n\n`;
   });
 
   return { text: fullText, pages: workbook.SheetNames.length };
@@ -87,10 +92,10 @@ const extractFromPPTX = async (file: File): Promise<{ text: string; pages: numbe
     const textNodes = xmlDoc.getElementsByTagName("a:t");
     let slideText = "";
     for(let i=0; i<textNodes.length; i++) {
-        slideText += textNodes[i].textContent + " ";
+        slideText += textNodes[i].textContent + "\n";
     }
     
-    fullText += `[Slide ${count}]\n${slideText}\n\n`;
+    fullText += `--- Slide ${count} ---\n${slideText}\n\n`;
   }
 
   return { text: fullText, pages: count };
@@ -102,8 +107,7 @@ const extractFromDocx = async (file: File): Promise<{ text: string; pages: numbe
   const arrayBuffer = await file.arrayBuffer();
   const result = await window.mammoth.extractRawText({ arrayBuffer: arrayBuffer });
   
-  // Word docs don't easily map to "pages" without rendering, so we default to 1 unit.
-  return { text: result.value, pages: 1 };
+  return { text: `--- Document Content ---\n${result.value}`, pages: 1 };
 };
 
 const extractFromImage = async (file: File): Promise<{ text: string; pages: number }> => {
@@ -111,13 +115,13 @@ const extractFromImage = async (file: File): Promise<{ text: string; pages: numb
   const worker = await createWorker('eng');
   const ret = await worker.recognize(file);
   await worker.terminate();
-  return { text: ret.data.text, pages: 1 };
+  return { text: `--- Image OCR Result ---\n${ret.data.text}`, pages: 1 };
 };
 
 const extractFromText = async (file: File): Promise<{ text: string; pages: number }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve({ text: reader.result as string, pages: 1 });
+    reader.onload = () => resolve({ text: `--- Text File ---\n${reader.result as string}`, pages: 1 });
     reader.onerror = reject;
     reader.readAsText(file);
   });
@@ -158,5 +162,4 @@ export const extractTextFromDocument = async (file: File): Promise<DocumentData>
   };
 };
 
-// Legacy export compatibility if needed (deprecated)
 export const extractTextFromPDF = extractTextFromDocument;

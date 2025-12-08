@@ -9,7 +9,7 @@
     <!-- Add libraries for other file types -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- Tesseract is now imported via NPM -->
+    <!-- Tesseract is imported via NPM, Mammoth via CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     
     <script>
@@ -31,13 +31,13 @@
 <script type="importmap">
 {
   "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "vite": "https://aistudiocdn.com/vite@^7.2.7",
     "tesseract.js": "https://aistudiocdn.com/tesseract.js@^6.0.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
     "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2"
   }
 }

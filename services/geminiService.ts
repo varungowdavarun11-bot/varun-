@@ -66,11 +66,16 @@ Assistant:`;
     const ai = getClient();
     const model = "gemini-2.5-flash";
     
+    // Improved System Prompt for handling various extracted file types
     const systemInstruction = `You are a helpful and knowledgeable teaching assistant. 
-    You have access to the following document content provided by the user. 
-    Answer the user's questions strictly based on this content. 
-    If the answer is not in the document, state that clearly.
-    Keep answers concise and educational.
+    You have access to the following DOCUMENT CONTENT, which has been extracted from a user's file (PDF, Excel, Image, etc.).
+    
+    GUIDELINES:
+    1. Answer the user's questions **strictly** based on this content.
+    2. The content might contain OCR errors, raw text artifacts, or CSV formatting (for Excel). Do your best to interpret it intelligently.
+    3. If the content is an Excel sheet, interpret the rows and columns to answer questions about the data.
+    4. If the answer is not in the document, state that clearly.
+    5. Keep answers concise, accurate, and educational.
     
     DOCUMENT CONTENT:
     ${context.substring(0, 900000)}

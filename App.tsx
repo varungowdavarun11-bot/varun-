@@ -95,12 +95,17 @@ const App: React.FC = () => {
   const handleUploadComplete = (data: DocumentData) => {
     const newSessionId = Date.now().toString();
     
-    // Determine unit label
+    // Determine unit label and generic document descriptor
     let unitLabel = 'pages';
-    if (data.fileType === 'excel') unitLabel = 'sheets';
-    if (data.fileType === 'powerpoint') unitLabel = 'slides';
-    if (data.fileType === 'image') unitLabel = 'image';
-    if (data.fileType === 'word') unitLabel = 'document';
+    let docLabel = 'document';
+    
+    if (data.fileType === 'excel') { unitLabel = 'sheets'; docLabel = 'spreadsheet'; }
+    if (data.fileType === 'powerpoint') { unitLabel = 'slides'; docLabel = 'presentation'; }
+    if (data.fileType === 'image') { unitLabel = 'image'; docLabel = 'image'; }
+    if (data.fileType === 'word') { unitLabel = 'document'; docLabel = 'document'; }
+
+    // If it's a single image, omitting the count "(1 image)" looks cleaner.
+    const stats = (data.fileType === 'image') ? '' : ` (${data.pageCount} ${unitLabel})`;
 
     const newSession: Session = {
       id: newSessionId,
@@ -108,7 +113,7 @@ const App: React.FC = () => {
       messages: [{
         id: 'init-1',
         role: 'model',
-        content: `I've analyzed **${data.name}** (${data.pageCount} ${unitLabel}). What would you like to know about it?`,
+        content: `I've analyzed **this ${docLabel}**${stats}. What would you like to know about it?`,
         timestamp: Date.now()
       }],
       createdAt: Date.now()
@@ -243,10 +248,16 @@ const App: React.FC = () => {
     if (!currentSessionId || !documentData) return;
     
     audioService.stop();
+
+    let docLabel = 'document';
+    if (documentData.fileType === 'image') docLabel = 'image';
+    if (documentData.fileType === 'excel') docLabel = 'spreadsheet';
+    if (documentData.fileType === 'powerpoint') docLabel = 'presentation';
+
     updateCurrentSessionMessages([{
       id: `reset-${Date.now()}`,
       role: 'model',
-      content: `Conversation cleared. I'm ready for new questions about **${documentData.name}**.`,
+      content: `Conversation cleared. I'm ready for new questions about **this ${docLabel}**.`,
       timestamp: Date.now()
     }]);
     setMobileMenuOpen(false);

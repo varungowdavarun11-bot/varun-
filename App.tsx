@@ -113,7 +113,7 @@ const App: React.FC = () => {
       messages: [{
         id: 'init-1',
         role: 'model',
-        content: `I've analyzed **this ${docLabel}**${stats}. What would you like to know about it?`,
+        content: `I've analyzed this ${docLabel}${stats}. What would you like to know about it?`,
         timestamp: Date.now()
       }],
       createdAt: Date.now()
@@ -257,7 +257,7 @@ const App: React.FC = () => {
     updateCurrentSessionMessages([{
       id: `reset-${Date.now()}`,
       role: 'model',
-      content: `Conversation cleared. I'm ready for new questions about **this ${docLabel}**.`,
+      content: `Conversation cleared. I'm ready for new questions about this ${docLabel}.`,
       timestamp: Date.now()
     }]);
     setMobileMenuOpen(false);

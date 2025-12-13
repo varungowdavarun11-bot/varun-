@@ -153,7 +153,13 @@ const App: React.FC = () => {
 
       const modeToUse = (!isOnline && aiMode === 'local') ? 'local' : aiMode;
 
-      const answer = await generateAnswer(documentData.text, userMsg.content, historyForApi, modeToUse);
+      const answer = await generateAnswer(
+        documentData.text, 
+        userMsg.content, 
+        historyForApi, 
+        modeToUse,
+        { pageCount: documentData.pageCount, fileType: documentData.fileType }
+      );
       
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),

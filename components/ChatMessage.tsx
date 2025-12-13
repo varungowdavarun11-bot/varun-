@@ -70,7 +70,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAudioStart, onAudi
         <button
           key={match.index}
           onClick={() => onPageClick && onPageClick(pageNum)}
-          className="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors align-baseline"
+          className="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 transition-colors align-baseline border border-slate-200 hover:border-indigo-200"
           title={`Go to ${label}`}
         >
           <FileSearch size={10} />

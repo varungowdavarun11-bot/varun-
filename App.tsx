@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AppState, Message, DocumentData, AIMode, Session } from './types';
 import FileUpload from './components/FileUpload';
 import ChatMessage from './components/ChatMessage';
+import DocumentViewer from './components/DocumentViewer';
 import { generateAnswer, checkLocalCapability } from './services/geminiService';
-import { Send, BookOpen, AlertTriangle, Plus, MessageSquare, Trash2, Menu, X, Wifi, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon, FileText } from 'lucide-react';
+import { Send, BookOpen, AlertTriangle, Plus, Trash2, Menu, X, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon, FileText, Eye, MessageSquare } from 'lucide-react';
 import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
@@ -18,6 +19,9 @@ const App: React.FC = () => {
   const [aiMode, setAiMode] = useState<AIMode>('unavailable');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // New state for Mobile View Toggle (Chat vs Document)
+  const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'document'>('chat');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -67,10 +71,10 @@ const App: React.FC = () => {
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
-    if (appState === AppState.CHAT) {
+    if (appState === AppState.CHAT && activeMobileTab === 'chat') {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, appState]);
+  }, [messages, appState, activeMobileTab]);
 
   // Helper to update messages for the active session
   const updateCurrentSessionMessages = (newMessagesOrUpdater: Message[] | ((prev: Message[]) => Message[])) => {
@@ -113,6 +117,7 @@ const App: React.FC = () => {
     setCurrentSessionId(newSessionId);
     setAppState(AppState.CHAT);
     setMobileMenuOpen(false);
+    setActiveMobileTab('chat'); // Reset to chat on new upload
   };
 
   const handleSendMessage = async () => {
@@ -266,19 +271,39 @@ const App: React.FC = () => {
     <div className="flex flex-col md:flex-row h-screen bg-slate-50 overflow-hidden">
       
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white flex-shrink-0">
-        <div className="flex items-center gap-2">
-           <BookOpen size={20} />
-           <span className="font-bold">Read Anything</span>
+      <div className="md:hidden flex items-center justify-between p-3 bg-slate-900 text-white flex-shrink-0 z-50 shadow-md">
+        <div className="flex items-center gap-2 truncate">
+           <div className="text-indigo-400">{getFileIcon(documentData?.fileType)}</div>
+           <span className="font-semibold text-sm truncate max-w-[150px]">{documentData?.name || 'Read Anything'}</span>
         </div>
-        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-          {mobileMenuOpen ? <X /> : <Menu />}
-        </button>
+        <div className="flex items-center gap-2">
+            {appState === AppState.CHAT && (
+              <div className="flex bg-slate-800 rounded-lg p-1 mr-2">
+                 <button 
+                    onClick={() => setActiveMobileTab('document')}
+                    className={`p-1.5 rounded-md transition-colors ${activeMobileTab === 'document' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                    title="View Document"
+                 >
+                    <Eye size={18} />
+                 </button>
+                 <button 
+                    onClick={() => setActiveMobileTab('chat')}
+                    className={`p-1.5 rounded-md transition-colors ${activeMobileTab === 'chat' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                    title="Chat"
+                 >
+                    <MessageSquare size={18} />
+                 </button>
+              </div>
+            )}
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+        </div>
       </div>
 
       {/* Sidebar (Desktop + Mobile Menu) */}
       <aside className={`
-        fixed inset-0 z-50 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out
+        fixed inset-0 z-40 bg-slate-900 text-slate-300 transform transition-transform duration-300 ease-in-out
         md:relative md:transform-none md:translate-x-0 md:w-64 md:flex md:flex-col
         ${mobileMenuOpen ? 'translate-x-0 pt-16' : '-translate-x-full md:pt-0'}
       `}>
@@ -371,7 +396,7 @@ const App: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full bg-slate-50">
         {!isOnline && appState === AppState.UPLOAD && aiMode !== 'local' && (
           <div className="absolute top-0 left-0 right-0 bg-red-500 text-white text-xs font-medium py-1 text-center z-20">
             No internet connection. Cloud features unavailable.
@@ -385,74 +410,98 @@ const App: React.FC = () => {
              </div>
           </div>
         ) : (
-          <div className="h-full flex flex-col w-full bg-white relative">
-            {/* Minimal Header for Chat */}
-            <header className="flex-shrink-0 h-14 border-b border-slate-100 flex items-center justify-between px-6 bg-white z-10">
-               <div className="flex items-center gap-2 overflow-hidden">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
-                    {getFileIcon(documentData?.fileType)}
-                  </div>
-                  <div className="flex flex-col overflow-hidden">
-                    <h2 className="text-sm font-semibold text-slate-800 truncate max-w-[200px] md:max-w-md">
-                      {documentData?.name || 'Document'}
-                    </h2>
-                    <span className="text-xs text-slate-500">{documentData?.pageCount} {documentData?.fileType === 'excel' ? 'sheets' : documentData?.fileType === 'powerpoint' ? 'slides' : documentData?.fileType === 'word' ? 'document' : 'pages'}</span>
-                  </div>
-               </div>
-            </header>
+          <div className="h-full w-full flex flex-col md:flex-row overflow-hidden relative">
+            
+            {/* Document Viewer Column (Left) */}
+            <div className={`
+                flex-1 h-full bg-slate-200 border-r border-slate-300 relative overflow-hidden
+                ${activeMobileTab === 'document' ? 'block' : 'hidden md:block'}
+                md:w-1/2 lg:w-3/5
+            `}>
+                {documentData ? (
+                  <DocumentViewer documentData={documentData} />
+                ) : (
+                   <div className="h-full flex items-center justify-center text-slate-400">No Document</div>
+                )}
+            </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-hide bg-slate-50/50">
-               <div className="max-w-3xl mx-auto w-full">
-                  {messages.map((msg) => (
-                    <ChatMessage 
-                        key={msg.id} 
-                        message={msg} 
-                        onAudioStart={handleAudioStart}
-                        onAudioEnd={handleAudioEnd}
-                    />
-                  ))}
-                  {isLoading && (
-                    <div className="flex justify-start mb-6 animate-pulse">
-                        <div className="bg-white border border-slate-100 px-5 py-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
-                          <div className="flex gap-1">
-                            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
-                          </div>
-                          <span className="text-xs text-slate-400 font-medium">
-                            Thinking...
-                          </span>
+            {/* Chat Column (Right) */}
+            <div className={`
+                flex-col h-full bg-white relative
+                ${activeMobileTab === 'chat' ? 'flex' : 'hidden md:flex'}
+                md:w-1/2 lg:w-2/5
+            `}>
+                {/* Desktop Chat Header */}
+                <header className="hidden md:flex flex-shrink-0 h-14 border-b border-slate-100 items-center justify-between px-6 bg-white z-10">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                            {getFileIcon(documentData?.fileType)}
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                            <h2 className="text-sm font-semibold text-slate-800 truncate max-w-[200px]">
+                            {documentData?.name || 'Document'}
+                            </h2>
+                            <span className="text-xs text-slate-500">
+                                {documentData?.pageCount} {documentData?.fileType === 'excel' ? 'sheets' : documentData?.fileType === 'powerpoint' ? 'slides' : documentData?.fileType === 'word' ? 'document' : 'pages'}
+                            </span>
                         </div>
                     </div>
-                  )}
-                  <div ref={messagesEndRef} />
-               </div>
+                </header>
+
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto p-4 scrollbar-hide bg-slate-50/50">
+                    <div className="w-full">
+                        {messages.map((msg) => (
+                            <ChatMessage 
+                                key={msg.id} 
+                                message={msg} 
+                                onAudioStart={handleAudioStart}
+                                onAudioEnd={handleAudioEnd}
+                            />
+                        ))}
+                        {isLoading && (
+                            <div className="flex justify-start mb-6 animate-pulse">
+                                <div className="bg-white border border-slate-100 px-5 py-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
+                                <div className="flex gap-1">
+                                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
+                                </div>
+                                <span className="text-xs text-slate-400 font-medium">
+                                    Thinking...
+                                </span>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+                </div>
+
+                {/* Input Area */}
+                <div className="p-4 border-t border-slate-100 bg-white">
+                    <div className="w-full">
+                        <div className="relative flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Ask a question..."
+                            disabled={isLoading || (!isOnline && aiMode !== 'local')}
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+                        />
+                        <button
+                            onClick={handleSendMessage}
+                            disabled={!inputText.trim() || isLoading}
+                            className="absolute right-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                            <Send size={18} />
+                        </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 border-t border-slate-100 bg-white">
-              <div className="max-w-3xl mx-auto w-full">
-                <div className="relative flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask a question about the document..."
-                    disabled={isLoading || (!isOnline && aiMode !== 'local')}
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!inputText.trim() || isLoading}
-                    className="absolute right-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
-                  >
-                    <Send size={18} />
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </main>

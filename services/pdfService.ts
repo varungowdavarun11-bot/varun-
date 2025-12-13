@@ -158,7 +158,8 @@ export const extractTextFromDocument = async (file: File): Promise<DocumentData>
     name: file.name,
     text: result.text,
     pageCount: result.pages,
-    fileType: fileType
+    fileType: fileType,
+    file: file
   };
 };
 

@@ -13,6 +13,7 @@ export interface DocumentData {
   text: string;
   pageCount: number; // Acts as "units" (pages, slides, sheets)
   fileType: FileType;
+  file?: File;
 }
 
 export interface Session {

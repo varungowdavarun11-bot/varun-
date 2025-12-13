@@ -36,7 +36,7 @@ export const generateAnswer = async (
   if (mode === 'local' && window.ai) {
     try {
       const truncatedContext = context.substring(0, 12000);
-      const systemPrompt = `You are a helpful teaching assistant. Answer the student's question based strictly on the provided content. If the answer is not in the content, say so.`;
+      const systemPrompt = `You are a helpful teaching assistant. Answer the student's question based strictly on the provided content. If the answer is not in the content, say so. IMPORTANT: When referring to specific information, always cite the page number like [Page 5] or [Slide 2].`;
 
       const session = await window.ai.languageModel.create({
         systemPrompt: systemPrompt
@@ -76,6 +76,7 @@ Assistant:`;
     3. If the content is an Excel sheet, interpret the rows and columns to answer questions about the data.
     4. If the answer is not in the document, state that clearly.
     5. Keep answers concise, accurate, and educational.
+    6. **CRITICAL**: When using information from a specific page or section, cite it using the format [Page X], [Slide X], or [Sheet X] at the end of the sentence. For example: "The conclusion states that X is true [Page 12]."
     
     DOCUMENT CONTENT:
     ${context.substring(0, 900000)}

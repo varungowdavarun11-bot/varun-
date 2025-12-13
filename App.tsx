@@ -4,7 +4,7 @@ import FileUpload from './components/FileUpload';
 import ChatMessage from './components/ChatMessage';
 import DocumentViewer from './components/DocumentViewer';
 import { generateAnswer, checkLocalCapability } from './services/geminiService';
-import { Send, BookOpen, AlertTriangle, Plus, Trash2, Menu, X, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon, FileText, Eye, MessageSquare } from 'lucide-react';
+import { Send, BookOpen, AlertTriangle, Plus, Trash2, Menu, X, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon, FileText, PanelLeftClose, PanelLeftOpen, MessageSquare, Eye } from 'lucide-react';
 import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
@@ -20,8 +20,9 @@ const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // New state for Mobile View Toggle (Chat vs Document)
-  const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'document'>('chat');
+  // Document Panel State
+  const [isDocumentPanelOpen, setIsDocumentPanelOpen] = useState(false);
+  const [activePageToScroll, setActivePageToScroll] = useState<number | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -71,10 +72,10 @@ const App: React.FC = () => {
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
-    if (appState === AppState.CHAT && activeMobileTab === 'chat') {
+    if (appState === AppState.CHAT && !isDocumentPanelOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, appState, activeMobileTab]);
+  }, [messages, appState, isDocumentPanelOpen]);
 
   // Helper to update messages for the active session
   const updateCurrentSessionMessages = (newMessagesOrUpdater: Message[] | ((prev: Message[]) => Message[])) => {
@@ -117,7 +118,7 @@ const App: React.FC = () => {
     setCurrentSessionId(newSessionId);
     setAppState(AppState.CHAT);
     setMobileMenuOpen(false);
-    setActiveMobileTab('chat'); // Reset to chat on new upload
+    setIsDocumentPanelOpen(false); // Default to chat view
   };
 
   const handleSendMessage = async () => {
@@ -193,6 +194,11 @@ const App: React.FC = () => {
       ...m,
       isAudioPlaying: false
     })));
+  };
+  
+  const handlePageClick = (page: number) => {
+      setIsDocumentPanelOpen(true);
+      setActivePageToScroll(page);
   };
 
   // Sidebar Actions
@@ -280,18 +286,11 @@ const App: React.FC = () => {
             {appState === AppState.CHAT && (
               <div className="flex bg-slate-800 rounded-lg p-1 mr-2">
                  <button 
-                    onClick={() => setActiveMobileTab('document')}
-                    className={`p-1.5 rounded-md transition-colors ${activeMobileTab === 'document' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
-                    title="View Document"
+                    onClick={() => setIsDocumentPanelOpen(!isDocumentPanelOpen)}
+                    className="p-1.5 rounded-md transition-colors text-slate-400 hover:text-white"
+                    title={isDocumentPanelOpen ? "Show Chat" : "Show Document"}
                  >
-                    <Eye size={18} />
-                 </button>
-                 <button 
-                    onClick={() => setActiveMobileTab('chat')}
-                    className={`p-1.5 rounded-md transition-colors ${activeMobileTab === 'chat' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
-                    title="Chat"
-                 >
-                    <MessageSquare size={18} />
+                    {isDocumentPanelOpen ? <MessageSquare size={18} /> : <Eye size={18} />}
                  </button>
               </div>
             )}
@@ -414,12 +413,11 @@ const App: React.FC = () => {
             
             {/* Document Viewer Column (Left) */}
             <div className={`
-                flex-1 h-full bg-slate-200 border-r border-slate-300 relative overflow-hidden
-                ${activeMobileTab === 'document' ? 'block' : 'hidden md:block'}
-                md:w-1/2 lg:w-3/5
+                h-full bg-slate-200 border-r border-slate-300 relative overflow-hidden transition-all duration-300
+                ${isDocumentPanelOpen ? 'flex-1 md:w-1/2 lg:w-3/5' : 'w-0 hidden'}
             `}>
                 {documentData ? (
-                  <DocumentViewer documentData={documentData} />
+                  <DocumentViewer documentData={documentData} scrollToPage={activePageToScroll} />
                 ) : (
                    <div className="h-full flex items-center justify-center text-slate-400">No Document</div>
                 )}
@@ -427,13 +425,20 @@ const App: React.FC = () => {
 
             {/* Chat Column (Right) */}
             <div className={`
-                flex-col h-full bg-white relative
-                ${activeMobileTab === 'chat' ? 'flex' : 'hidden md:flex'}
-                md:w-1/2 lg:w-2/5
+                flex-col h-full bg-white relative transition-all duration-300
+                ${isDocumentPanelOpen ? 'hidden md:flex md:w-1/2 lg:w-2/5' : 'flex w-full'}
             `}>
                 {/* Desktop Chat Header */}
                 <header className="hidden md:flex flex-shrink-0 h-14 border-b border-slate-100 items-center justify-between px-6 bg-white z-10">
-                    <div className="flex items-center gap-2 overflow-hidden">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <button 
+                           onClick={() => setIsDocumentPanelOpen(!isDocumentPanelOpen)}
+                           className="text-slate-500 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-slate-100"
+                           title={isDocumentPanelOpen ? "Close Document" : "Open Document"}
+                        >
+                            {isDocumentPanelOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+                        </button>
+                        <div className="w-px h-6 bg-slate-200"></div>
                         <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
                             {getFileIcon(documentData?.fileType)}
                         </div>
@@ -450,13 +455,14 @@ const App: React.FC = () => {
 
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-4 scrollbar-hide bg-slate-50/50">
-                    <div className="w-full">
+                    <div className="w-full max-w-3xl mx-auto">
                         {messages.map((msg) => (
                             <ChatMessage 
                                 key={msg.id} 
                                 message={msg} 
                                 onAudioStart={handleAudioStart}
                                 onAudioEnd={handleAudioEnd}
+                                onPageClick={handlePageClick}
                             />
                         ))}
                         {isLoading && (
@@ -479,7 +485,7 @@ const App: React.FC = () => {
 
                 {/* Input Area */}
                 <div className="p-4 border-t border-slate-100 bg-white">
-                    <div className="w-full">
+                    <div className="w-full max-w-3xl mx-auto">
                         <div className="relative flex items-center gap-2">
                         <input
                             type="text"

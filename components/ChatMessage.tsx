@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Message } from '../types';
-import { Bot, User, Volume2, StopCircle, Loader2, WifiOff } from 'lucide-react';
+import { Bot, User, Volume2, StopCircle, Loader2, WifiOff, FileSearch } from 'lucide-react';
 import { generateSpeech } from '../services/geminiService';
 import { audioService } from '../services/audioService';
 
@@ -8,9 +8,10 @@ interface ChatMessageProps {
   message: Message;
   onAudioStart: (id: string) => void;
   onAudioEnd: (id: string) => void;
+  onPageClick?: (page: number) => void;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAudioStart, onAudioEnd }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAudioStart, onAudioEnd, onPageClick }) => {
   const isUser = message.role === 'user';
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
 
@@ -49,9 +50,47 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAudioStart, onAudi
     }
   };
 
+  // Helper to render text with clickable page links
+  const renderContent = (text: string) => {
+    // Regex matches [Page X], [Slide X], [Sheet X] (case insensitive)
+    const regex = /\[(Page|Slide|Sheet)\s+(\d+)\]/gi;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      
+      const pageNum = parseInt(match[2], 10);
+      const label = match[0];
+      
+      parts.push(
+        <button
+          key={match.index}
+          onClick={() => onPageClick && onPageClick(pageNum)}
+          className="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors align-baseline"
+          title={`Go to ${label}`}
+        >
+          <FileSearch size={10} />
+          {label}
+        </button>
+      );
+      
+      lastIndex = regex.lastIndex;
+    }
+    
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    
+    return parts.length > 0 ? parts : text;
+  };
+
   return (
     <div className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[85%] md:max-w-[70%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`flex max-w-[85%] md:max-w-[80%] gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
         
         {/* Avatar */}
         <div className={`
@@ -69,7 +108,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAudioStart, onAudi
             : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
           }
         `}>
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          <div className="whitespace-pre-wrap">
+             {isUser ? message.content : renderContent(message.content)}
+          </div>
 
           {/* TTS Button (Only for Model) */}
           {!isUser && (

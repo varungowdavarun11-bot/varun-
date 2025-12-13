@@ -1,53 +1,104 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { DocumentData } from '../types';
-import { Loader2, FileText, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface DocumentViewerProps {
   documentData: DocumentData;
+  scrollToPage?: number | null;
 }
 
-const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentData }) => {
+const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentData, scrollToPage }) => {
   const [content, setContent] = useState<React.ReactNode>(null);
   const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [currentPdfUrl, setCurrentPdfUrl] = useState<string | null>(null);
+
+  // Helper to format text with Page anchors for scrolling
+  const renderTextWithAnchors = (text: string) => {
+    // Split by "--- Page X ---" markers
+    const parts = text.split(/(--- Page \d+ ---|--- Sheet: .+? ---|--- Slide \d+ ---)/);
+    
+    return parts.map((part, index) => {
+        // Check if this part is a header
+        const headerMatch = part.match(/--- (Page|Slide) (\d+) ---/);
+        
+        if (headerMatch) {
+            const pageNum = headerMatch[2];
+            return (
+                <div key={index} id={`doc-page-${pageNum}`} className="text-indigo-600 font-bold mt-8 mb-2 border-b border-indigo-100 pb-1">
+                    {part}
+                </div>
+            );
+        }
+        
+        if (part.match(/--- Sheet: .+? ---/)) {
+            return (
+                <div key={index} className="text-indigo-600 font-bold mt-8 mb-2 border-b border-indigo-100 pb-1">
+                    {part}
+                </div>
+            );
+        }
+
+        return <span key={index}>{part}</span>;
+    });
+  };
+
+  // Effect to handle Scrolling
+  useEffect(() => {
+    if (scrollToPage && documentData.fileType === 'pdf') {
+       // For PDF, we need to update the iframe src hash
+       // We'll handle this in the content render logic or separate effect
+       if (currentPdfUrl) {
+           // Force reload iframe with new hash if needed? 
+           // Actually, iframe src changes usually trigger reload.
+           // Since we can't easily access iframe internal DOM for cross-origin reasons (even blob sometimes),
+           // the #page=X hash is the standard way.
+       }
+    } else if (scrollToPage && containerRef.current) {
+        // For HTML content
+        const element = document.getElementById(`doc-page-${scrollToPage}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+  }, [scrollToPage, documentData.fileType, currentPdfUrl]);
 
   useEffect(() => {
     const loadContent = async () => {
-      // If we don't have the original file object (e.g. page reload), show the extracted text.
-      if (!documentData.file) {
-        setContent(
-          <div className="p-8 h-full overflow-y-auto bg-white">
-             <div className="max-w-3xl mx-auto">
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
-                   <AlertCircle size={20} className="mt-0.5 flex-shrink-0" />
-                   <p className="text-sm">
-                     The original file is not available in this session (reloaded from history). 
-                     Showing the extracted text instead.
-                   </p>
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Extracted Content</h3>
-                <div className="font-mono text-xs md:text-sm whitespace-pre-wrap text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-lg border border-slate-200">
-                   {documentData.text}
-                </div>
-             </div>
-          </div>
-        );
-        return;
-      }
-
       setLoading(true);
       try {
+        if (!documentData.file) {
+          // Fallback View (Reloaded Session)
+          setContent(
+            <div className="p-8 h-full overflow-y-auto bg-white" ref={containerRef}>
+               <div className="max-w-3xl mx-auto">
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-3">
+                     <AlertCircle size={20} className="mt-0.5 flex-shrink-0" />
+                     <p className="text-sm">
+                       The original file is not available in this session (reloaded from history). 
+                       Showing the extracted text instead.
+                     </p>
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Extracted Content</h3>
+                  <div className="font-mono text-xs md:text-sm whitespace-pre-wrap text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-lg border border-slate-200">
+                     {renderTextWithAnchors(documentData.text)}
+                  </div>
+               </div>
+            </div>
+          );
+          return;
+        }
+
         const file = documentData.file;
         const fileType = documentData.fileType;
 
         if (fileType === 'pdf') {
-          const url = URL.createObjectURL(file);
-          // Use object tag for PDF or iframe
+          const baseUrl = URL.createObjectURL(file);
+          setCurrentPdfUrl(baseUrl);
+          // PDF Viewer handling
+          // We wrap it in a functional component to handle prop updates cleanly
           setContent(
-            <iframe 
-              src={url} 
-              className="w-full h-full border-none bg-slate-200" 
-              title="PDF Viewer"
-            />
+             <PdfFrame baseUrl={baseUrl} page={scrollToPage} />
           );
         } else if (fileType === 'image') {
            const url = URL.createObjectURL(file);
@@ -61,21 +112,18 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentData }) => {
              const arrayBuffer = await file.arrayBuffer();
              const result = await window.mammoth.convertToHtml({ arrayBuffer });
              setContent(
-               <div className="h-full overflow-y-auto bg-slate-100 p-4 md:p-8">
+               <div className="h-full overflow-y-auto bg-slate-100 p-4 md:p-8" ref={containerRef}>
                  <div 
                    className="bg-white shadow-lg p-8 md:p-12 min-h-full max-w-4xl mx-auto prose prose-slate prose-sm md:prose-base lg:prose-lg"
                    dangerouslySetInnerHTML={{ __html: result.value }}
                  />
                </div>
              );
-          } else {
-             throw new Error("Mammoth library missing");
           }
         } else if (fileType === 'excel') {
            if (window.XLSX) {
              const arrayBuffer = await file.arrayBuffer();
              const workbook = window.XLSX.read(arrayBuffer);
-             // Render all sheets? Just first for now.
              const firstSheetName = workbook.SheetNames[0];
              const worksheet = workbook.Sheets[firstSheetName];
              const html = window.XLSX.utils.sheet_to_html(worksheet, { id: 'excel-table', editable: false });
@@ -95,17 +143,15 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentData }) => {
                  </div>
                </div>
              );
-           } else {
-              throw new Error("XLSX library missing");
            }
         } else {
            // Default fallback (Text, PPT, etc)
            setContent(
-            <div className="h-full overflow-y-auto bg-white p-6 md:p-8">
+            <div className="h-full overflow-y-auto bg-white p-6 md:p-8" ref={containerRef}>
                <div className="max-w-3xl mx-auto">
                  <h3 className="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Document Content</h3>
                  <div className="font-mono text-sm whitespace-pre-wrap text-slate-700 leading-relaxed">
-                   {documentData.text}
+                   {renderTextWithAnchors(documentData.text)}
                  </div>
                </div>
             </div>
@@ -113,23 +159,15 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentData }) => {
         }
       } catch (e) {
         console.error("Error rendering document preview", e);
-        setContent(
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
-             <AlertCircle className="w-10 h-10 text-slate-400 mb-2" />
-             <p className="text-slate-600 font-medium">Preview not available</p>
-             <p className="text-slate-500 text-sm mt-1 mb-6">We couldn't render a visual preview for this file type.</p>
-             <div className="w-full max-w-2xl text-left bg-white p-4 rounded-lg border border-slate-200 h-64 overflow-y-auto shadow-sm">
-               <pre className="text-xs text-slate-600 whitespace-pre-wrap">{documentData.text}</pre>
-             </div>
-          </div>
-        );
+        // Fallback error view...
+        setContent(<div>Error loading preview</div>);
       } finally {
         setLoading(false);
       }
     };
 
     loadContent();
-  }, [documentData]);
+  }, [documentData, scrollToPage]); // Re-run if document changes. `scrollToPage` inside effect is for non-PDF.
 
   if (loading) {
     return (
@@ -145,6 +183,19 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documentData }) => {
       {content}
     </div>
   );
+};
+
+// Sub-component to handle PDF iframe updates specifically
+const PdfFrame = ({ baseUrl, page }: { baseUrl: string, page?: number | null }) => {
+    const src = page ? `${baseUrl}#page=${page}` : baseUrl;
+    return (
+        <iframe 
+            key={src} // Key forces remount on hash change to ensure navigation happens
+            src={src} 
+            className="w-full h-full border-none bg-slate-200" 
+            title="PDF Viewer"
+        />
+    );
 };
 
 export default DocumentViewer;

@@ -60,13 +60,20 @@ const App: React.FC = () => {
 
   const handleUploadComplete = (docs: DocumentData[]) => {
     const newId = Date.now().toString();
+    const hasImages = docs.some(d => d.fileType === 'image');
+    
+    let welcomeText = `I've analyzed ${docs.length} document(s). You can ask questions about any of them.`;
+    if (hasImages) {
+      welcomeText += "\n\nI've also processed your images using my vision model. I can now reason about colors, objects, and visual layouts within those files.";
+    }
+
     const newSession: Session = {
       id: newId,
       documents: docs,
       messages: [{
         id: 'init-1',
         role: 'model',
-        content: `I've analyzed ${docs.length} document(s). You can ask questions about any of them, or compare their contents.`,
+        content: welcomeText,
         timestamp: Date.now()
       }],
       createdAt: Date.now()
@@ -91,15 +98,6 @@ const App: React.FC = () => {
     } catch (e) {
       updateCurrentSessionMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: "An error occurred.", timestamp: Date.now() }]);
     } finally { setIsLoading(false); }
-  };
-
-  const getFileIcon = (type?: string) => {
-    switch(type) {
-      case 'excel': return <FileSpreadsheet size={16} />;
-      case 'image': return <ImageIcon size={16} />;
-      case 'word': return <FileText size={16} />;
-      default: return <FileIcon size={16} />;
-    }
   };
 
   return (

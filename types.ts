@@ -15,6 +15,9 @@ export interface DocumentData {
   pageCount: number;
   fileType: FileType;
   file?: File;
+  // Multimodal support
+  base64Data?: string;
+  mimeType?: string;
 }
 
 export interface Session {

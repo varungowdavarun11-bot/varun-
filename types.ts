@@ -9,16 +9,17 @@ export interface Message {
 export type FileType = 'pdf' | 'image' | 'excel' | 'powerpoint' | 'text' | 'word';
 
 export interface DocumentData {
+  id: string;
   name: string;
   text: string;
-  pageCount: number; // Acts as "units" (pages, slides, sheets)
+  pageCount: number;
   fileType: FileType;
   file?: File;
 }
 
 export interface Session {
   id: string;
-  documentData: DocumentData;
+  documents: DocumentData[];
   messages: Message[];
   createdAt: number;
 }

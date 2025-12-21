@@ -1,3 +1,4 @@
+
 import { DocumentData, FileType } from '../types';
 import { createWorker } from 'tesseract.js';
 
@@ -154,7 +155,9 @@ export const extractTextFromDocument = async (file: File): Promise<DocumentData>
       throw new Error("Unsupported file type");
   }
 
+  // Generate a unique ID for the DocumentData object
   return {
+    id: Math.random().toString(36).substr(2, 9),
     name: file.name,
     text: result.text,
     pageCount: result.pages,

@@ -30,7 +30,6 @@ export const generateAnswer = async (
   mode: AIMode
 ): Promise<string> => {
   
-  // Combine non-image text context
   const textContext = documents
     .filter(doc => doc.fileType !== 'image')
     .map(doc => `--- START OF FILE: ${doc.name} (${doc.fileType}) ---\n${doc.text}\n--- END OF FILE: ${doc.name} ---`)
@@ -45,7 +44,6 @@ export const generateAnswer = async (
   `;
 
   if (mode === 'local' && window.ai) {
-    // Local AI is typically text-only
     try {
       const combinedText = documents.map(doc => `[FILE: ${doc.name}]\n${doc.text}`).join('\n\n');
       const truncatedContext = combinedText.substring(0, 15000);
@@ -82,10 +80,8 @@ export const generateAnswer = async (
     ${textContext.substring(0, 500000)}
     `;
 
-    // Construct parts for the user message
     const userParts: any[] = [{ text: question }];
 
-    // Add image parts if available
     documents.forEach(doc => {
       if (doc.fileType === 'image' && doc.base64Data && doc.mimeType) {
         userParts.push({
@@ -94,7 +90,6 @@ export const generateAnswer = async (
             mimeType: doc.mimeType
           }
         });
-        // Also provide a text anchor for the filename
         userParts.push({ text: `(Attached Image: ${doc.name})` });
       }
     });
@@ -115,18 +110,30 @@ export const generateAnswer = async (
   }
 };
 
+/**
+ * TTS Flow: Text -> TTS Model -> Audio
+ */
 export const generateSpeech = async (text: string): Promise<string | null> => {
   if (!process.env.API_KEY) return null;
   try {
     const ai = getClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
+      contents: [{ parts: [{ text: `Read this response naturally and clearly: ${text}` }] }],
       config: {
         responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+        speechConfig: { 
+          voiceConfig: { 
+            prebuiltVoiceConfig: { voiceName: 'Kore' } 
+          } 
+        },
       },
     });
-    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
-  } catch (e) { return null; }
+    // Extract raw PCM audio data from candidate parts
+    const audioData = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+    return audioData || null;
+  } catch (e) { 
+    console.error("TTS Generation Error:", e);
+    return null; 
+  }
 };

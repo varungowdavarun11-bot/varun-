@@ -1,6 +1,5 @@
-
 import React, { useRef, useState } from 'react';
-import { Upload, FileText, Loader2, AlertCircle, Image as ImageIcon, FileSpreadsheet, File as FileIcon, X } from 'lucide-react';
+import { Upload, FileText, Loader2, AlertCircle, Image as ImageIcon, FileSpreadsheet, File as FileIcon, X, Trash2 } from 'lucide-react';
 import { extractTextFromDocument } from '../services/pdfService'; 
 import { DocumentData } from '../types';
 
@@ -45,6 +44,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const clearSelection = () => {
+    setSelectedFiles([]);
+  };
+
   const startAnalysis = async () => {
     if (selectedFiles.length === 0) return;
     
@@ -54,7 +57,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
     try {
       for (const file of selectedFiles) {
-        // extractTextFromDocument now returns a full DocumentData object including an 'id'
         const data = await extractTextFromDocument(file);
         results.push(data);
       }
@@ -88,15 +90,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
 
       {selectedFiles.length > 0 && !isProcessing && (
         <div className="mt-6 space-y-3">
-          <h4 className="text-sm font-semibold text-slate-700">Selected Files ({selectedFiles.length})</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-slate-700">Selected Files ({selectedFiles.length})</h4>
+            <button onClick={clearSelection} className="text-xs font-medium text-slate-400 hover:text-red-500 flex items-center gap-1">
+              <Trash2 size={12} />
+              Clear All
+            </button>
+          </div>
           <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
             {selectedFiles.map((file, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div key={i} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm group">
                 <div className="flex items-center gap-3 truncate">
                   <FileText size={18} className="text-indigo-500 flex-shrink-0" />
                   <span className="text-sm text-slate-700 truncate">{file.name}</span>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); removeFile(i); }} className="p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-red-500"><X size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); removeFile(i); }} className="p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={16} /></button>
               </div>
             ))}
           </div>

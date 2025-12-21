@@ -4,7 +4,7 @@ import FileUpload from './components/FileUpload';
 import ChatMessage from './components/ChatMessage';
 import DocumentViewer from './components/DocumentViewer';
 import { generateAnswer, checkLocalCapability } from './services/geminiService';
-import { Send, BookOpen, AlertTriangle, Plus, Trash2, Menu, X, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon, FileText, PanelLeftClose, PanelLeftOpen, MessageSquare, Eye, Layers } from 'lucide-react';
+import { Send, BookOpen, AlertTriangle, Plus, Trash2, Menu, X, History, FileSpreadsheet, File as FileIcon, Image as ImageIcon, FileText, PanelLeftClose, PanelLeftOpen, MessageSquare, Eye, Layers, ArrowLeft } from 'lucide-react';
 import { audioService } from './services/audioService';
 
 const App: React.FC = () => {
@@ -100,6 +100,10 @@ const App: React.FC = () => {
     } finally { setIsLoading(false); }
   };
 
+  const goBackToUpload = () => {
+    setAppState(AppState.UPLOAD);
+  };
+
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-50 overflow-hidden text-slate-900">
       <aside className={`fixed inset-0 z-40 bg-slate-900 text-slate-300 transform transition-transform md:relative md:transform-none md:w-64 md:flex md:flex-col ${mobileMenuOpen ? 'translate-x-0 pt-16' : '-translate-x-full'}`}>
@@ -122,7 +126,21 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-white">
-        {appState === AppState.UPLOAD ? <div className="h-full flex items-center justify-center p-4"><FileUpload onUploadComplete={handleUploadComplete} /></div> : (
+        {appState === AppState.UPLOAD ? (
+          <div className="h-full flex flex-col">
+            {sessions.length > 0 && (
+               <header className="p-4 flex items-center">
+                 <button onClick={() => setAppState(AppState.CHAT)} className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">
+                   <MessageSquare size={18} />
+                   Back to Chat
+                 </button>
+               </header>
+            )}
+            <div className="flex-1 flex items-center justify-center p-4">
+              <FileUpload onUploadComplete={handleUploadComplete} />
+            </div>
+          </div>
+        ) : (
           <div className="h-full w-full flex flex-col md:flex-row overflow-hidden relative">
             <div className={`h-full bg-slate-100 border-r border-slate-200 transition-all ${isDocumentPanelOpen ? 'flex-1 md:w-1/2 lg:w-3/5' : 'w-0 hidden'}`}>
               <DocumentViewer documents={documents} scrollToPage={activePageToScroll} />
@@ -130,12 +148,17 @@ const App: React.FC = () => {
             <div className={`flex flex-col h-full bg-white transition-all ${isDocumentPanelOpen ? 'hidden md:flex md:w-1/2 lg:w-2/5' : 'flex w-full'}`}>
               <header className="flex-shrink-0 h-14 border-b border-slate-100 flex items-center justify-between px-6">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setIsDocumentPanelOpen(!isDocumentPanelOpen)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-600 transition-colors">
+                  <button onClick={goBackToUpload} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1 text-xs font-semibold" title="Go back to Upload">
+                    <ArrowLeft size={18} />
+                    <span className="hidden sm:inline">Back</span>
+                  </button>
+                  <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block"></div>
+                  <button onClick={() => setIsDocumentPanelOpen(!isDocumentPanelOpen)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-600 transition-colors" title={isDocumentPanelOpen ? "Close Viewer" : "Open Viewer"}>
                     {isDocumentPanelOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
                   </button>
-                  <div className="font-semibold text-sm truncate max-w-[200px]">{documents.length} File(s) Loaded</div>
+                  <div className="font-semibold text-sm truncate max-w-[200px] hidden lg:block">{documents.length} File(s) Loaded</div>
                 </div>
-                <div className="md:hidden"><button onClick={() => setMobileMenuOpen(true)}><Menu size={24} /></button></div>
+                <div className="md:hidden"><button onClick={() => setMobileMenuOpen(true)} className="p-2 hover:bg-slate-100 rounded-lg"><Menu size={24} /></button></div>
               </header>
               <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50">
                 <div className="max-w-3xl mx-auto">

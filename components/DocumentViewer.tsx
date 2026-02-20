@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { DocumentData } from '../types';
-import { Loader2, AlertCircle, FileText, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, FileText } from 'lucide-react';
 
 interface DocumentViewerProps {
   documents: DocumentData[];

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Message } from '../types';
-import { Bot, User, Volume2, StopCircle, Loader2, WifiOff, FileSearch, AudioLines } from 'lucide-react';
+import { Bot, User, Volume2, Loader2, WifiOff, FileSearch, AudioLines } from 'lucide-react';
 import { generateSpeech } from '../services/geminiService';
 import { audioService } from '../services/audioService';
 

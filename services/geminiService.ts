@@ -12,7 +12,9 @@ export const checkLocalCapability = async (): Promise<AIMode> => {
     try {
       const capabilities = await window.ai.languageModel.capabilities();
       if (capabilities.available === 'readily') return 'local';
-    } catch (e) {}
+    } catch (e) {
+      // Local AI not available or failed to check
+    }
   }
   return (process.env.API_KEY && process.env.API_KEY.length > 0) ? 'cloud' : 'unavailable';
 };
@@ -76,7 +78,10 @@ export const generateAnswer = async (
     });
 
     return response.text || "I couldn't generate an answer.";
-  } catch (error) { throw error; }
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    throw error;
+  }
 };
 
 export const generateSpeech = async (text: string): Promise<string | null> => {

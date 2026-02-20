@@ -83,7 +83,7 @@ export class AudioService {
 
   public stop(): void {
     if (this.currentSource) {
-      try { this.currentSource.stop(); } catch (e) { }
+      try { this.currentSource.stop(); } catch (e) { /* ignore */ }
       this.currentSource = null;
     }
     if (window.speechSynthesis) window.speechSynthesis.cancel();

@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [isDocumentPanelOpen, setIsDocumentPanelOpen] = useState(false);
   const [activePageToScroll, setActivePageToScroll] = useState<number | null>(null);
   const [isAppReady, setIsAppReady] = useState(false);
+  const [isKeySelecting, setIsKeySelecting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const currentSession = useMemo(() => sessions.find(s => s.id === currentSessionId), [sessions, currentSessionId]);
@@ -104,6 +105,21 @@ const App: React.FC = () => {
       setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...updatedMessages, { id: Date.now().toString(), role: 'model', content: "Something went wrong while thinking. Check your connection.", timestamp: Date.now() }] } : s));
     } finally { 
       setIsLoading(false); 
+    }
+  };
+
+  const handleConnectKey = async () => {
+    if (window.aistudio) {
+      setIsKeySelecting(true);
+      try {
+        await window.aistudio.openSelectKey();
+        // Assume success as per instructions
+        setAiMode('cloud');
+      } catch (e) {
+        console.error("Failed to open key selection", e);
+      } finally {
+        setIsKeySelecting(false);
+      }
     }
   };
 
@@ -202,6 +218,16 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-3">
+                  {aiMode === 'unavailable' && (
+                    <button 
+                      onClick={handleConnectKey}
+                      disabled={isKeySelecting}
+                      className="text-xs font-bold px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors flex items-center gap-2"
+                    >
+                      {isKeySelecting ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                      Connect API Key
+                    </button>
+                  )}
                   <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} title={isOnline ? 'Online' : 'Offline'}></div>
                   <button onClick={() => setMobileMenuOpen(true)} className="md:hidden p-2 hover:bg-slate-100 rounded-lg">
                     <Menu size={24} />

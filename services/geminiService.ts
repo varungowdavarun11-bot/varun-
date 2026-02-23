@@ -2,21 +2,27 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { AIMode, DocumentData } from "../types";
 
 const getClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key is missing.");
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("API Key is missing. Please check your environment or select a key.");
   return new GoogleGenAI({ apiKey });
 };
 
 export const checkLocalCapability = async (): Promise<AIMode> => {
   if (typeof window !== 'undefined' && window.ai && window.ai.languageModel) {
     try {
-      const capabilities = await window.ai.languageModel.capabilities();
+      // Add a timeout to prevent hanging the app initialization
+      const capabilitiesPromise = window.ai.languageModel.capabilities();
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ available: 'no' }), 2000));
+      const capabilities = await Promise.race([capabilitiesPromise, timeoutPromise]) as any;
+      
       if (capabilities.available === 'readily') return 'local';
     } catch (e) {
       // Local AI not available or failed to check
     }
   }
-  return (process.env.API_KEY && process.env.API_KEY.length > 0) ? 'cloud' : 'unavailable';
+  const hasKey = (process.env.API_KEY && process.env.API_KEY.length > 0) || 
+                 (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 0);
+  return hasKey ? 'cloud' : 'unavailable';
 };
 
 export const generateAnswer = async (
@@ -85,7 +91,7 @@ export const generateAnswer = async (
 };
 
 export const generateSpeech = async (text: string): Promise<string | null> => {
-  if (!process.env.API_KEY) return null;
+  if (!process.env.API_KEY && !process.env.GEMINI_API_KEY) return null;
   try {
     const ai = getClient();
     const response = await ai.models.generateContent({

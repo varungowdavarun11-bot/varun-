@@ -1,6 +1,6 @@
 {
-  "name": "Read PDF",
-  "description": "Offline PDF analysis and Q&A using Local AI.",
+  "name": "Read Anything",
+  "description": "Multimodal document analysis and Q&A using Gemini AI.",
   "requestFramePermissions": [
     "microphone"
   ]

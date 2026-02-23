@@ -3,14 +3,20 @@
  * Decodes raw PCM bytes from the Gemini TTS model and plays them via Web Audio API.
  */
 
-function decodeBase64(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+function decodeBase64(base64: string): Uint8Array | null {
+  try {
+    const cleanBase64 = base64.replace(/^data:audio\/\w+;base64,/, '').replace(/\s/g, '');
+    const binaryString = atob(cleanBase64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  } catch (e) {
+    console.error("Base64 decoding failed:", e);
+    return null;
   }
-  return bytes;
 }
 
 export class AudioService {
@@ -32,14 +38,20 @@ export class AudioService {
     sampleRate: number = 24000,
     numChannels: number = 1
   ): Promise<AudioBuffer> {
-    const dataInt16 = new Int16Array(data.buffer);
-    const frameCount = dataInt16.length / numChannels;
+    // PCM 16-bit is 2 bytes per sample
+    const length = Math.floor(data.byteLength / 2);
+    const frameCount = length / numChannels;
     const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
     for (let channel = 0; channel < numChannels; channel++) {
       const channelData = buffer.getChannelData(channel);
       for (let i = 0; i < frameCount; i++) {
-        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        // Gemini TTS returns 16-bit signed little-endian PCM
+        const offset = (i * numChannels + channel) * 2;
+        if (offset + 1 < data.byteLength) {
+          channelData[i] = dataView.getInt16(offset, true) / 32768.0;
+        }
       }
     }
     return buffer;
@@ -51,8 +63,11 @@ export class AudioService {
 
     if (options.base64Audio) {
       try {
+        console.log("Attempting cloud audio playback...");
         if (ctx.state === 'suspended') await ctx.resume();
         const bytes = decodeBase64(options.base64Audio);
+        if (!bytes) throw new Error("Invalid audio data");
+        
         const audioBuffer = await this.decodeAudioData(bytes, ctx);
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
@@ -65,18 +80,27 @@ export class AudioService {
         };
         this.currentSource = source;
         source.start();
+        console.log("Cloud audio playback started");
         return;
       } catch (error) {
-        console.error("Error in Audio -> Speaker flow:", error);
+        console.error("Cloud audio failed, falling back to browser TTS:", error);
       }
     }
 
-    if (options.text) {
+    if (options.text && window.speechSynthesis) {
+      console.log("Attempting browser TTS playback...");
       const utterance = new SpeechSynthesisUtterance(options.text);
-      utterance.onend = () => { if (onEnded) onEnded(); };
-      utterance.onerror = () => { if (onEnded) onEnded(); };
+      utterance.onend = () => { 
+        console.log("Browser TTS finished");
+        if (onEnded) onEnded(); 
+      };
+      utterance.onerror = (e) => { 
+        console.error("SpeechSynthesis error:", e);
+        if (onEnded) onEnded(); 
+      };
       window.speechSynthesis.speak(utterance);
     } else {
+      console.warn("No audio data and no TTS capability available");
       if (onEnded) onEnded();
     }
   }

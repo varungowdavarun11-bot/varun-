@@ -41,6 +41,10 @@ declare global {
     JSZip: any;
     Tesseract: any;
     mammoth: any;
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
     ai?: {
       languageModel: {
         capabilities: () => Promise<{ available: 'readily' | 'after-download' | 'no'; defaultTopK?: number; maxTopK?: number; defaultTemperature?: number }>;

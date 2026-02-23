@@ -28,11 +28,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onAudioStart, onAudi
       let base64Audio: string | null = null;
       
       // Path: Text -> TTS Model
-      if (navigator.onLine && process.env.API_KEY) {
+      const hasKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (navigator.onLine && hasKey) {
         try {
           base64Audio = await generateSpeech(message.content);
         } catch (e) {
-          console.warn("Cloud TTS failed, using browser fallback");
+          console.warn("Cloud TTS failed, using browser fallback", e);
         }
       }
 

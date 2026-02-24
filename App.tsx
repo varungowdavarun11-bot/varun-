@@ -196,8 +196,12 @@ const App: React.FC = () => {
         ) : (
           <div className="h-full w-full flex flex-col md:flex-row overflow-hidden">
             {/* Split Pane: Document Viewer (Optional Left) */}
-            <div className={`h-full bg-slate-100 border-r border-slate-200 transition-all duration-500 ease-in-out ${isDocumentPanelOpen ? 'flex-1 md:w-1/2 lg:w-3/5' : 'w-0 opacity-0 invisible overflow-hidden'}`}>
-              <DocumentViewer documents={documents} scrollToPage={activePageToScroll} />
+            <div className={`h-full bg-slate-100 border-r border-slate-200 transition-all duration-500 ease-in-out ${isDocumentPanelOpen ? 'fixed inset-0 z-50 md:relative md:inset-auto flex-1 md:w-1/2 lg:w-3/5' : 'w-0 opacity-0 invisible overflow-hidden'}`}>
+              <DocumentViewer 
+                documents={documents} 
+                scrollToPage={activePageToScroll} 
+                onClose={() => setIsDocumentPanelOpen(false)}
+              />
             </div>
             
             {/* Split Pane: Chat Window (Main Right) */}

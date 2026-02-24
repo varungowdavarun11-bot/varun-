@@ -1,20 +1,17 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Read Anything - Netlify Deployment Guide
 
-# Run and deploy your AI Studio app
+This application is ready to be deployed on Netlify.
 
-This contains everything you need to run your app locally.
+## Deployment Steps
 
-View your app in AI Studio: https://ai.studio/apps/e3b62ae1-9c28-4927-bfea-627a2eeee24f
+1.  **Connect to GitHub**: Push your code to a GitHub repository and connect it to Netlify.
+2.  **Build Settings**:
+    *   **Build Command**: `npm run build`
+    *   **Publish Directory**: `dist`
+3.  **Environment Variables**:
+    Go to **Site settings > Environment variables** and add:
+    *   `GEMINI_API_KEY`: Your Google Gemini API Key.
+    *   `API_KEY`: (Optional) Your paid/preview Gemini API Key.
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## SPA Routing
+The included `netlify.toml` and `public/_redirects` files handle Single Page Application (SPA) routing, ensuring that all URLs are correctly handled by the app.

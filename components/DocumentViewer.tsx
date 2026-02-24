@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { DocumentData } from '../types';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2, FileText, X } from 'lucide-react';
 
 interface DocumentViewerProps {
   documents: DocumentData[];
   scrollToPage?: number | null;
+  onClose?: () => void;
 }
 
-const DocumentViewer: React.FC<DocumentViewerProps> = ({ documents, scrollToPage }) => {
+const DocumentViewer: React.FC<DocumentViewerProps> = ({ documents, scrollToPage, onClose }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [content, setContent] = useState<React.ReactNode>(null);
   const [loading, setLoading] = useState(false);
@@ -64,17 +65,29 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ documents, scrollToPage
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* File Switcher Header */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 flex items-center overflow-x-auto p-2 gap-2 scrollbar-hide">
-        {documents.map((doc, idx) => (
-          <button
-            key={doc.id}
-            onClick={() => setActiveIndex(idx)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${activeIndex === idx ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+      <div className="flex-shrink-0 bg-white border-b border-slate-200 flex items-center justify-between p-2 gap-2">
+        <div className="flex items-center overflow-x-auto gap-2 scrollbar-hide flex-1">
+          {documents.map((doc, idx) => (
+            <button
+              key={doc.id}
+              onClick={() => setActiveIndex(idx)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${activeIndex === idx ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              <FileText size={14} />
+              <span className="truncate max-w-[120px]">{doc.name}</span>
+            </button>
+          ))}
+        </div>
+        
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 md:hidden flex-shrink-0"
+            title="Close Viewer"
           >
-            <FileText size={14} />
-            <span className="truncate max-w-[120px]">{doc.name}</span>
+            <X size={20} />
           </button>
-        ))}
+        )}
       </div>
 
       <div className="flex-1 relative bg-slate-100 overflow-hidden">

@@ -1,15 +1,6 @@
 import { DocumentData, FileType } from '../types';
 import { createWorker } from 'tesseract.js';
 
-declare global {
-  interface Window {
-    pdfjsLib: any;
-    XLSX: any;
-    JSZip: any;
-    mammoth: any;
-  }
-}
-
 const getFileType = (file: File): FileType => {
   const type = file.type;
   const name = file.name.toLowerCase();
